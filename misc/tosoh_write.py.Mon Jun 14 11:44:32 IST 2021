@@ -1,38 +1,16 @@
 #!/usr/bin/python3
 import sys
 import fcntl
-import logging
-import time
-import matplotlib
-# Force matplotlib to not use any Xwindows backend.
-matplotlib.use('Agg')
+import logging, time
 import matplotlib.pyplot as plt 
 import io
 
 from astm_bidirectional_common import my_sql , file_mgmt, print_to_log
-#For mysql password
-sys.path.append('/var/gmcs_config')
-import astm_var
 ####Settings section start#####
 logfile_name='/var/log/tosoh.out.log'
 inbox_data='/root/tosoh.inbox.data/' #remember ending/
 inbox_arch='/root/tosoh.inbox.arch/' #remember ending/
 log=1	#log=0 to disable logging; log=1 to enable
-equipment='TOSOH'
-
-'''
-tosoh_to_lis={
-      "SA1C":5174,
-      "chromatogram":5178
-  }
-  
-
-tosoh_to_lis_qc={
-      "SA1C":9222,
-      "chromatogram":9223
-  }
-'''
-   
 ####Settings section end#####
 
 logging.basicConfig(filename=logfile_name,level=logging.DEBUG,format='%(asctime)s %(message)s')
@@ -45,89 +23,6 @@ f=file_mgmt()
 f.set_inbox(inbox_data,inbox_arch)
 print_to_log("Inbox Data at:",f.inbox_data)
 print_to_log("Inbox Archived at:",f.inbox_arch)
-
-
-
-def get_eid_for_sid_code(ms,con,sid,ex_code,equipment):
-  logging.debug(sid)
-  prepared_sql='select examination_id from result where sample_id=%s'
-  data_tpl=(sid,)
-  logging.debug(prepared_sql)
-  logging.debug(data_tpl)
-
-  cur=ms.run_query(con,prepared_sql,data_tpl)
-  
-  eid_tpl=()
-  data=ms.get_single_row(cur)
-  while data:
-    logging.debug(data)
-    eid_tpl=eid_tpl+(data[0],)
-    data=ms.get_single_row(cur)
-  logging.debug(eid_tpl)
-  
-
-  prepared_sqlc='select examination_id from host_code where code=%s and equipment=%s'
-  data_tplc=(ex_code,equipment)
-  logging.debug(prepared_sqlc)
-  logging.debug(data_tplc)
-  curc=ms.run_query(con,prepared_sqlc,data_tplc)
-  
-  eid_tplc=()
-  datac=ms.get_single_row(curc)
-  while datac:
-    logging.debug(datac)
-    eid_tplc=eid_tplc+(datac[0],)
-    datac=ms.get_single_row(curc)
-  logging.debug(eid_tplc)
-
-  ex_id=tuple(set(eid_tpl) & set(eid_tplc))
-  logging.debug('final examination id:'+str(ex_id))
-  if(len(ex_id)!=1):
-    msg="Number of examination_id found is {}. only 1 is acceptable.".format(len(ex_id))
-    logging.debug(msg)
-    return False
-  return ex_id[0]
-
-
-def get_eid_for_sid_code_blob(ms,con,sid,ex_code,equipment):
-  logging.debug(sid)
-  prepared_sql='select examination_id from result_blob where sample_id=%s'
-  data_tpl=(sid,)
-  logging.debug(prepared_sql)
-  logging.debug(data_tpl)
-
-  cur=ms.run_query(con,prepared_sql,data_tpl)
-  
-  eid_tpl=()
-  data=ms.get_single_row(cur)
-  while data:
-    logging.debug(data)
-    eid_tpl=eid_tpl+(data[0],)
-    data=ms.get_single_row(cur)
-  logging.debug(eid_tpl)
-  
-
-  prepared_sqlc='select examination_id from host_code where code=%s and equipment=%s'
-  data_tplc=(ex_code,equipment)
-  logging.debug(prepared_sqlc)
-  logging.debug(data_tplc)
-  curc=ms.run_query(con,prepared_sqlc,data_tplc)
-  
-  eid_tplc=()
-  datac=ms.get_single_row(curc)
-  while datac:
-    logging.debug(datac)
-    eid_tplc=eid_tplc+(datac[0],)
-    datac=ms.get_single_row(curc)
-  logging.debug(eid_tplc)
-
-  ex_id=tuple(set(eid_tpl) & set(eid_tplc))
-  logging.debug('final examination id:'+str(ex_id))
-  if(len(ex_id)!=1):
-    msg="Number of examination_id found is {}. only 1 is acceptable.".format(len(ex_id))
-    logging.debug(msg)
-    return False
-  return ex_id[0]
 
 def analyse_file(fh):
   record_dict={}
@@ -184,7 +79,7 @@ def mk_histogram_from_tuple(xy,heading,x_axis,y_axis,axis_range_tuple):
   plt.xlabel(x_axis) 
   plt.ylabel(y_axis)
   plt.axis(axis_range_tuple) 
-  plt.title(heading) 
+  plt.title('HISTOGRAM: '+heading) 
   f = io.BytesIO()
   plt.savefig(f, format='png')
   f.seek(0)
@@ -193,6 +88,7 @@ def mk_histogram_from_tuple(xy,heading,x_axis,y_axis,axis_range_tuple):
   plt.close()	#otherwise graphs will be overwritten, in next loop
   return data
 
+    
 def manage_record(record):
   #print_to_log("single record:",record)
   print_to_log("########",'#########')
@@ -202,7 +98,6 @@ def manage_record(record):
   sample_id=record['1'][2:].strip()
   print_to_log("sample_id:",sample_id)
   print_to_log("### managing record 2 (Sample Number) Not used at all here : ",record['2'])
-  uniq=equipment+'_'+record['2']
   print_to_log("### managing record 3 (Measurement value):",record['3'])
   print_to_log("Flag ??:",record['3'][0:2])
   
@@ -259,7 +154,7 @@ def manage_record(record):
   #>>> x.items()
   #dict_items([(1, 2), (3, 4), ('a', 'b')])
 
-  peak_data_dict={}
+
   for peak_number,peak_data in record['5'].items():
     print_to_log("pick number:{}, ".format(peak_number),"peak_data:{}".format(peak_data))
     print_to_log("pick number:{}, ".format(peak_number),
@@ -285,9 +180,6 @@ peak_%:{}, "
                           peak_data[34:34+5].strip(),
                         )
                 )
-
-    peak_data_dict.update({peak_data[0:5].strip():{"peak_persent":peak_data[34:34+5].strip()}})
-  print_to_log("peak_data_dict:",peak_data_dict)                    
   print_to_log("### managing record 6: (nothing inside. Just end of record 5)",record['6'])
   print_to_log("### managing record 7: (data points)",record['7'])
   
@@ -306,77 +198,21 @@ peak_%:{}, "
   print_to_log("x_values",x_values)
   print_to_log("y_values",y_values)
   axis_range_tuple=(min(x_values),max(x_values),min(y_values),max(y_values)/20)
-  png=mk_histogram_from_tuple((x_values,y_values),'HbA1c HPLC Chromatogram','(Retention time) mintues','Absorbance',axis_range_tuple)
-  #fff=open('/root/d.png','wb')
-  #fff.write(png)
-  #fff.close() 
-
-  print_to_log("### managing record 8: (Calibration Information) Not used",record['8'])
-
-  #Now update mysql database
-  ms=my_sql()
-  con=ms.get_link(astm_var.my_host,astm_var.my_user,astm_var.my_pass,astm_var.my_db)
-  
-  prepared_sql='insert into primary_result \
-                             (sample_id,examination_id,result,uniq) \
-                             values \
-                             (%s,%s,%s,%s) \
-                             ON DUPLICATE KEY UPDATE result=%s'
-
-  prepared_sql_blob='insert into primary_result_blob \
-                             (sample_id,examination_id,result,uniq) \
-                             values \
-                             (%s,%s,%s,%s) \
-                             ON DUPLICATE KEY UPDATE result=%s'
-                             
-  if(sample_id.rstrip(' ').isnumeric() == False):
-    print_to_log('sample id is not nuumberic?:',sample_id)
-    return False;
-
-  #peak_data_dict: {'A1A': {'peak_persent': '0.5'}, 'A1B': {'peak_persent': '1.4'}, 'F': {'peak_persent': '0.6'}, 'LA1C+': {'peak_persent': '3.6'}, 'SA1C': {'peak_persent': '10.8'}, 'A0': {'peak_persent': '85.1'}}
-
-  for code,code_data in peak_data_dict.items():
-    eid=get_eid_for_sid_code(ms,con,sample_id,code,equipment)
-    data_tpl=(sample_id,eid,code_data['peak_persent'],uniq,code_data['peak_persent'])        
-    try:          
-      cur=ms.run_query(con,prepared_sql,data_tpl)
-      msg=prepared_sql
-      print_to_log('prepared_sql:',msg)
-      msg=data_tpl
-      print_to_log('data tuple:',msg)
-      print_to_log('cursor:',cur)            
-      ms.close_cursor(cur)
-    except Exception as my_ex:
-      msg=prepared_sql
-      print_to_log('prepared_sql:',msg)
-      msg=data_tpl
-      print_to_log('data tuple:',msg)
-      print_to_log('exception description:',my_ex)
-
-  #for chromatogram, 'chrom' is nowhere in data!!! It is my creation. Similar entry required in host_code
-  chrom_eid=get_eid_for_sid_code_blob(ms,con,sample_id,'chrom',equipment)  
-  data_tpl=(sample_id,chrom_eid,png,uniq,png)
-
-  try:          
-    cur=ms.run_query(con,prepared_sql_blob,data_tpl)
-    msg=prepared_sql_blob
-    print_to_log('prepared_sql:',msg)
-    #msg=data_tpl
-    #print_to_log('data tuple:',msg)
-    #print_to_log('cursor:',cur)            
-    ms.close_cursor(cur)
-  
-  except Exception as my_ex:
-    msg=prepared_sql_blob
-    print_to_log('prepared_sql:',msg)
-    #msg=data_tpl
-    #print_to_log('data tuple:',msg)
-    print_to_log('exception description:',my_ex)
+  d=mk_histogram_from_tuple((x_values,y_values),'HbA1c HPLC Chromatogram','(Retention time) mintues','Absorbance',axis_range_tuple)
+  fff=open('/root/d.png','wb')
+  fff.write(d)
+  fff.close() 
 
 while True:
   if(f.get_first_inbox_file()):
     all_record_tuple=analyse_file(f.fh)
     #print_to_log("all record:",all_record_tuple)
     manage_all_record(all_record_tuple)
-    f.archive_inbox_file()
-    time.sleep(1)
+    #f.archive_inbox_file()		#comment during development and debugging
+    #axis_range_tuple=(0,20,0,20)
+    #d=mk_histogram_from_tuple(((1,2,3,4),(2,4,8,16)),'heading','x_axis','y_axis',axis_range_tuple)
+    #fff=open('/root/d.png','wb')
+    #fff.write(d)
+    #fff.close()
+    
+    time.sleep(5)
