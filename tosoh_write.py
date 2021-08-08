@@ -177,9 +177,18 @@ def manage_all_record(all_record_tuple):
     manage_record(record)
 
 
-def mk_histogram_from_tuple(xy,heading,x_axis,y_axis,axis_range_tuple):
+def mk_histogram_from_tuple(xy,heading,x_axis,y_axis,axis_range_tuple,peak_data_dict):
   #print(x)
   #print(y)
+  
+  #at_level=max(xy[1])/20*0.8
+  #at_level_offset=at_level*0.1
+  
+  for each_peak_name in peak_data_dict:
+    at_level=min(xy[1][int(peak_data_dict[each_peak_name]['peak_top'])],max(xy[1])/20*0.6)
+    plt.annotate(each_peak_name+'('+ peak_data_dict[each_peak_name]['peak_persent']  +')',(float(peak_data_dict[each_peak_name]['peak_top'])*0.2/60,at_level),rotation=90,verticalalignment='bottom',)
+    print_to_log(each_peak_name,(float(peak_data_dict[each_peak_name]['peak_top'])*0.2/60,at_level))
+    #at_level=at_level-at_level_offset
   plt.plot(xy[0], xy[1]) 
   plt.xlabel(x_axis) 
   plt.ylabel(y_axis)
@@ -291,7 +300,8 @@ peak_%:{}, "
                         )
                 )
 
-      peak_data_dict.update({peak_data[0:5].strip():{"peak_persent":peak_data[34:34+5].strip()}})
+      #peak_data_dict.update({peak_data[0:5].strip():{"peak_persent":peak_data[34:34+5].strip()}})
+      peak_data_dict.update({peak_data[0:5].strip():{"peak_persent":peak_data[34:34+5].strip(),"peak_top":peak_data[18:18+4].strip()}})
     print_to_log("peak_data_dict:",peak_data_dict)                    
   print_to_log("### managing record 6: (nothing inside. Just end of record 5)",record['6'])
   print_to_log("### managing record 7: (data points)",record['7'])
@@ -311,7 +321,7 @@ peak_%:{}, "
   print_to_log("x_values",x_values)
   print_to_log("y_values",y_values)
   axis_range_tuple=(min(x_values),max(x_values),min(y_values),max(y_values)/20)
-  png=mk_histogram_from_tuple((x_values,y_values),'HbA1c HPLC Chromatogram','(Retention time) mintues','Absorbance',axis_range_tuple)
+  png=mk_histogram_from_tuple((x_values,y_values),'HbA1c HPLC Chromatogram','(Retention time) mintues','mV',axis_range_tuple,peak_data_dict)
   #fff=open('/root/d.png','wb')
   #fff.write(png)
   #fff.close() 

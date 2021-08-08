@@ -3,6 +3,9 @@ import sys
 import fcntl
 import logging
 import time
+import matplotlib
+# Force matplotlib to not use any Xwindows backend.
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt 
 import io
 
@@ -15,9 +18,9 @@ logfile_name='/var/log/tosoh.out.log'
 inbox_data='/root/tosoh.inbox.data/' #remember ending/
 inbox_arch='/root/tosoh.inbox.arch/' #remember ending/
 log=1	#log=0 to disable logging; log=1 to enable
-equipment='VITROS3600'
+equipment='TOSOH'
 
-
+'''
 tosoh_to_lis={
       "SA1C":5174,
       "chromatogram":5178
@@ -28,7 +31,8 @@ tosoh_to_lis_qc={
       "SA1C":9222,
       "chromatogram":9223
   }
-    
+'''
+   
 ####Settings section end#####
 
 logging.basicConfig(filename=logfile_name,level=logging.DEBUG,format='%(asctime)s %(message)s')
@@ -41,6 +45,89 @@ f=file_mgmt()
 f.set_inbox(inbox_data,inbox_arch)
 print_to_log("Inbox Data at:",f.inbox_data)
 print_to_log("Inbox Archived at:",f.inbox_arch)
+
+
+
+def get_eid_for_sid_code(ms,con,sid,ex_code,equipment):
+  logging.debug(sid)
+  prepared_sql='select examination_id from result where sample_id=%s'
+  data_tpl=(sid,)
+  logging.debug(prepared_sql)
+  logging.debug(data_tpl)
+
+  cur=ms.run_query(con,prepared_sql,data_tpl)
+  
+  eid_tpl=()
+  data=ms.get_single_row(cur)
+  while data:
+    logging.debug(data)
+    eid_tpl=eid_tpl+(data[0],)
+    data=ms.get_single_row(cur)
+  logging.debug(eid_tpl)
+  
+
+  prepared_sqlc='select examination_id from host_code where code=%s and equipment=%s'
+  data_tplc=(ex_code,equipment)
+  logging.debug(prepared_sqlc)
+  logging.debug(data_tplc)
+  curc=ms.run_query(con,prepared_sqlc,data_tplc)
+  
+  eid_tplc=()
+  datac=ms.get_single_row(curc)
+  while datac:
+    logging.debug(datac)
+    eid_tplc=eid_tplc+(datac[0],)
+    datac=ms.get_single_row(curc)
+  logging.debug(eid_tplc)
+
+  ex_id=tuple(set(eid_tpl) & set(eid_tplc))
+  logging.debug('final examination id:'+str(ex_id))
+  if(len(ex_id)!=1):
+    msg="Number of examination_id found is {}. only 1 is acceptable.".format(len(ex_id))
+    logging.debug(msg)
+    return False
+  return ex_id[0]
+
+
+def get_eid_for_sid_code_blob(ms,con,sid,ex_code,equipment):
+  logging.debug(sid)
+  prepared_sql='select examination_id from result_blob where sample_id=%s'
+  data_tpl=(sid,)
+  logging.debug(prepared_sql)
+  logging.debug(data_tpl)
+
+  cur=ms.run_query(con,prepared_sql,data_tpl)
+  
+  eid_tpl=()
+  data=ms.get_single_row(cur)
+  while data:
+    logging.debug(data)
+    eid_tpl=eid_tpl+(data[0],)
+    data=ms.get_single_row(cur)
+  logging.debug(eid_tpl)
+  
+
+  prepared_sqlc='select examination_id from host_code where code=%s and equipment=%s'
+  data_tplc=(ex_code,equipment)
+  logging.debug(prepared_sqlc)
+  logging.debug(data_tplc)
+  curc=ms.run_query(con,prepared_sqlc,data_tplc)
+  
+  eid_tplc=()
+  datac=ms.get_single_row(curc)
+  while datac:
+    logging.debug(datac)
+    eid_tplc=eid_tplc+(datac[0],)
+    datac=ms.get_single_row(curc)
+  logging.debug(eid_tplc)
+
+  ex_id=tuple(set(eid_tpl) & set(eid_tplc))
+  logging.debug('final examination id:'+str(ex_id))
+  if(len(ex_id)!=1):
+    msg="Number of examination_id found is {}. only 1 is acceptable.".format(len(ex_id))
+    logging.debug(msg)
+    return False
+  return ex_id[0]
 
 def analyse_file(fh):
   record_dict={}
@@ -161,7 +248,11 @@ def manage_record(record):
   print_to_log("Number of peaks : ",record['4'][5:7].strip())
   print_to_log("Number of raw data sets : ",record['4'][7:11].strip())
 
-  print_to_log("### managing record 5 (Peak data) Not used currently: ",record['5'])
+  if(record['4'][5:7].strip()=='0'):
+    print_to_log('Number of peaks are zero','Returning False');
+    #return False;
+  else:
+    print_to_log("### managing record 5 (Peak data) Not used currently: ",record['5'])
   #'5 1A1A  B  15 650  15  77  81    4.35  0.5'
   #'112123451123412341234123412341234567812345'
   #'   01234567890123456789012345678901234567890
@@ -229,6 +320,7 @@ peak_%:{}, "
   #Now update mysql database
   ms=my_sql()
   con=ms.get_link(astm_var.my_host,astm_var.my_user,astm_var.my_pass,astm_var.my_db)
+  
   prepared_sql='insert into primary_result \
                              (sample_id,examination_id,result,uniq) \
                              values \
@@ -241,29 +333,33 @@ peak_%:{}, "
                              (%s,%s,%s,%s) \
                              ON DUPLICATE KEY UPDATE result=%s'
                              
-  data_tpl=(sample_id,tosoh_to_lis['SA1C'],peak_data_dict['SA1C']['peak_persent'],uniq,peak_data_dict['SA1C']['peak_persent'])
-  
   if(sample_id.rstrip(' ').isnumeric() == False):
-    print_to_log('sample id is not nuumberic?:',sample_id)
+    print_to_log('sample id is not number?:',sample_id)
     return False;
-    
-  try:          
-    cur=ms.run_query(con,prepared_sql,data_tpl)
-    msg=prepared_sql
-    print_to_log('prepared_sql:',msg)
-    msg=data_tpl
-    print_to_log('data tuple:',msg)
-    print_to_log('cursor:',cur)            
-    ms.close_cursor(cur)
-  
-  except Exception as my_ex:
-    msg=prepared_sql
-    print_to_log('prepared_sql:',msg)
-    msg=data_tpl
-    print_to_log('data tuple:',msg)
-    print_to_log('exception description:',my_ex)
-  
-  data_tpl=(sample_id,tosoh_to_lis['chromatogram'],png,uniq,png)
+
+  #peak_data_dict: {'A1A': {'peak_persent': '0.5'}, 'A1B': {'peak_persent': '1.4'}, 'F': {'peak_persent': '0.6'}, 'LA1C+': {'peak_persent': '3.6'}, 'SA1C': {'peak_persent': '10.8'}, 'A0': {'peak_persent': '85.1'}}
+
+  for code,code_data in peak_data_dict.items():
+    eid=get_eid_for_sid_code(ms,con,sample_id,code,equipment)
+    data_tpl=(sample_id,eid,code_data['peak_persent'],uniq,code_data['peak_persent'])        
+    try:          
+      cur=ms.run_query(con,prepared_sql,data_tpl)
+      msg=prepared_sql
+      print_to_log('prepared_sql:',msg)
+      msg=data_tpl
+      print_to_log('data tuple:',msg)
+      print_to_log('cursor:',cur)            
+      ms.close_cursor(cur)
+    except Exception as my_ex:
+      msg=prepared_sql
+      print_to_log('prepared_sql:',msg)
+      msg=data_tpl
+      print_to_log('data tuple:',msg)
+      print_to_log('exception description:',my_ex)
+
+  #for chromatogram, 'chrom' is nowhere in data!!! It is my creation. Similar entry required in host_code
+  chrom_eid=get_eid_for_sid_code_blob(ms,con,sample_id,'chrom',equipment)  
+  data_tpl=(sample_id,chrom_eid,png,uniq,png)
 
   try:          
     cur=ms.run_query(con,prepared_sql_blob,data_tpl)
