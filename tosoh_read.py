@@ -3,7 +3,7 @@ import sys
 import fcntl
 
 ####Settings section start#####
-input_tty='/dev/ttyS0'
+input_tty='/dev/ttyS2'
 logfile_name='/var/log/tosoh.in.log'
 output_folder='/root/tosoh.inbox.data/' #remember ending/
 alarm_time=25

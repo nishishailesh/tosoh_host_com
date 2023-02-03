@@ -177,19 +177,9 @@ def manage_all_record(all_record_tuple):
     manage_record(record)
 
 
-def mk_histogram_from_tuple(xy,heading,x_axis,y_axis,axis_range_tuple,peak_data_dict):
+def mk_histogram_from_tuple(xy,heading,x_axis,y_axis,axis_range_tuple):
   #print(x)
   #print(y)
-  
-  #at_level=max(xy[1])/20*0.8
-  #at_level_offset=at_level*0.1
-  
-  for each_peak_name in peak_data_dict:
-    at_level=min(xy[1][int(peak_data_dict[each_peak_name]['peak_top'])],max(xy[1])-100)
-    print_to_log('at_level:'+each_peak_name,at_level)
-    plt.annotate(each_peak_name+'('+ peak_data_dict[each_peak_name]['peak_persent']  +')',(float(peak_data_dict[each_peak_name]['peak_top'])*0.2/60,at_level),rotation=90,verticalalignment='bottom',)
-    print_to_log('peak position:'+each_peak_name,(float(peak_data_dict[each_peak_name]['peak_top'])*0.2/60,at_level))
-    #at_level=at_level-at_level_offset
   plt.plot(xy[0], xy[1]) 
   plt.xlabel(x_axis) 
   plt.ylabel(y_axis)
@@ -260,24 +250,23 @@ def manage_record(record):
 
   if(record['4'][5:7].strip()=='0'):
     print_to_log('Number of peaks are zero','Returning False');
-    peak_data_dict={}
     #return False;
   else:
     print_to_log("### managing record 5 (Peak data) Not used currently: ",record['5'])
-    #'5 1A1A  B  15 650  15  77  81    4.35  0.5'
-    #'112123451123412341234123412341234567812345'
-    #'   01234567890123456789012345678901234567890
-    #dictionary.items() converts it in to list of tuples
-    #example
-    #>>> x
-    #{1: 2, 3: 4, 'a': 'b'}
-    #>>> x.items()
-    #dict_items([(1, 2), (3, 4), ('a', 'b')])
+  #'5 1A1A  B  15 650  15  77  81    4.35  0.5'
+  #'112123451123412341234123412341234567812345'
+  #'   01234567890123456789012345678901234567890
+  #dictionary.items() converts it in to list of tuples
+  #example
+  #>>> x
+  #{1: 2, 3: 4, 'a': 'b'}
+  #>>> x.items()
+  #dict_items([(1, 2), (3, 4), ('a', 'b')])
 
-    peak_data_dict={}
-    for peak_number,peak_data in record['5'].items():
-      print_to_log("pick number:{}, ".format(peak_number),"peak_data:{}".format(peak_data))
-      print_to_log("pick number:{}, ".format(peak_number),
+  peak_data_dict={}
+  for peak_number,peak_data in record['5'].items():
+    print_to_log("pick number:{}, ".format(peak_number),"peak_data:{}".format(peak_data))
+    print_to_log("pick number:{}, ".format(peak_number),
 "peak_name:{}, \
 peak_type:{}, \
 base_start:{}, \
@@ -301,17 +290,16 @@ peak_%:{}, "
                         )
                 )
 
-      #peak_data_dict.update({peak_data[0:5].strip():{"peak_persent":peak_data[34:34+5].strip()}})
-      peak_data_dict.update({peak_data[0:5].strip():{"peak_persent":peak_data[34:34+5].strip(),"peak_top":peak_data[18:18+4].strip()}})
-    print_to_log("peak_data_dict:",peak_data_dict)                    
+    peak_data_dict.update({peak_data[0:5].strip():{"peak_persent":peak_data[34:34+5].strip()}})
+  print_to_log("peak_data_dict:",peak_data_dict)                    
   print_to_log("### managing record 6: (nothing inside. Just end of record 5)",record['6'])
   print_to_log("### managing record 7: (data points)",record['7'])
-
+  
   x_values=()
   y_values=()
   x_counter=0
   step=(0.2/60)
-
+  
   for point_set,points in record['7'].items():
     print_to_log("point_set: {}".format(point_set),"points: {}".format(points))
     x_values=x_values+(x_counter,x_counter+step*1,x_counter+step*2,x_counter+step*3,x_counter+step*4,
@@ -321,11 +309,8 @@ peak_%:{}, "
                         float(points[45:54].strip()),float(points[54:63].strip()),float(points[63:72].strip()),float(points[72:81].strip()),float(points[81:90].strip()))
   print_to_log("x_values",x_values)
   print_to_log("y_values",y_values)
-  
-  axis_range_tuple=(min(x_values),max(x_values),min(y_values[0:-9]),max(y_values))
-  print_to_log("axis_range_tuple:",axis_range_tuple)
-  
-  png=mk_histogram_from_tuple((x_values,y_values),'HbA1c HPLC Chromatogram','(Retention time) mintues','mV',axis_range_tuple,peak_data_dict)
+  axis_range_tuple=(min(x_values),max(x_values),min(y_values),max(y_values)/20)
+  png=mk_histogram_from_tuple((x_values,y_values),'HbA1c HPLC Chromatogram','(Retention time) mintues','Absorbance',axis_range_tuple)
   #fff=open('/root/d.png','wb')
   #fff.write(png)
   #fff.close() 
@@ -335,7 +320,7 @@ peak_%:{}, "
   #Now update mysql database
   ms=my_sql()
   con=ms.get_link(astm_var.my_host,astm_var.my_user,astm_var.my_pass,astm_var.my_db)
-
+  
   prepared_sql='insert into primary_result \
                              (sample_id,examination_id,result,uniq) \
                              values \
@@ -347,7 +332,7 @@ peak_%:{}, "
                              values \
                              (%s,%s,%s,%s) \
                              ON DUPLICATE KEY UPDATE result=%s'
-
+                             
   if(sample_id.rstrip(' ').isnumeric() == False):
     print_to_log('sample id is not number?:',sample_id)
     return False;
