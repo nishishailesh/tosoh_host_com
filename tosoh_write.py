@@ -356,21 +356,22 @@ peak_%:{}, "
 
   for code,code_data in peak_data_dict.items():
     eid=get_eid_for_sid_code(ms,con,sample_id,code,equipment)
-    data_tpl=(sample_id,eid,code_data['peak_persent'],uniq,code_data['peak_persent'])        
-    try:          
-      cur=ms.run_query(con,prepared_sql,data_tpl)
-      msg=prepared_sql
-      print_to_log('prepared_sql:',msg)
-      msg=data_tpl
-      print_to_log('data tuple:',msg)
-      print_to_log('cursor:',cur)            
-      ms.close_cursor(cur)
-    except Exception as my_ex:
-      msg=prepared_sql
-      print_to_log('prepared_sql:',msg)
-      msg=data_tpl
-      print_to_log('data tuple:',msg)
-      print_to_log('exception description:',my_ex)
+    if (eid!=False):
+        data_tpl=(sample_id,eid,code_data['peak_persent'],uniq,code_data['peak_persent'])        
+        try:          
+          cur=ms.run_query(con,prepared_sql,data_tpl)
+          msg=prepared_sql
+          print_to_log('prepared_sql:',msg)
+          msg=data_tpl
+          print_to_log('data tuple:',msg)
+          print_to_log('cursor:',cur)            
+          ms.close_cursor(cur)
+        except Exception as my_ex:
+          msg=prepared_sql
+          print_to_log('Exception: prepared_sql:',msg)
+          msg=data_tpl
+          print_to_log('Exception: data tuple:',msg)
+          print_to_log('Exception description:',my_ex)
 
   #for chromatogram, 'chrom' is nowhere in data!!! It is my creation. Similar entry required in host_code
   chrom_eid=get_eid_for_sid_code_blob(ms,con,sample_id,'chrom',equipment)  
